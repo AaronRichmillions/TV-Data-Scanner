@@ -1,0 +1,51 @@
+<script>
+    function runAudit() {
+        const rawData = document.getElementById('dataInput').value;
+        const rows = [];
+        
+        try {
+            // 兼容逻辑：如果包含 'O' 'H' 'L' 'C' 等表头，自动过滤掉
+            const lines = rawData.split('\n').filter(line => line.includes("'") || line.includes("."));
+            
+            lines.forEach(line => {
+                // 正则提取所有数字（包含小数点）
+                const matches = line.match(/\d+\.\d+/g);
+                if (matches && matches.length >= 4) {
+                    rows.push({
+                        "O": matches[0],
+                        "H": matches[1],
+                        "L": matches[2],
+                        "C": matches[3]
+                    });
+                }
+            });
+
+            if (rows.length === 0) throw new Error("未识别到有效 OHLC 数据");
+
+            let html = "";
+            const latest = rows[0];
+            const spread0 = (parseFloat(latest.H) - parseFloat(latest.L)).toFixed(2);
+            
+            // 执行 [v3.0 协议] 动能审计
+            html += `<p><b>当前 [000] 状态：</b> O:${latest.O} H:${latest.H} L:${latest.L} C:${latest.C}</p>`;
+            html += `<p><b>实时波幅 (Spread)：</b> ${spread0}</p>`;
+            
+            if (spread0 < 10) {
+                html += `<p class="logic-alert">[审计判定] 动能极度枯竭 (10pt以内)，判定为核心摩擦区。禁止追单，执行观望策略。</p>`;
+            }
+
+            // 渲染表格
+            let tableHtml = "";
+            rows.forEach(r => {
+                const s = (parseFloat(r.H) - parseFloat(r.L)).toFixed(2);
+                tableHtml += `<tr><td>${r.O}</td><td>${r.H}</td><td>${r.L}</td><td>${r.C}</td><td>${s}</td></tr>`;
+            });
+
+            document.getElementById('auditContent').innerHTML = html;
+            document.getElementById('tableBody').innerHTML = tableHtml;
+            document.getElementById('resultCard').style.display = 'block';
+        } catch (e) { 
+            alert("解析失败。请确保粘贴的数据包含 O,H,L,C 数值。"); 
+        }
+    }
+</script>
