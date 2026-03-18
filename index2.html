@@ -1,51 +1,76 @@
-<script>
-    function runAudit() {
-        const rawData = document.getElementById('dataInput').value;
-        const rows = [];
-        
-        try {
-            // 兼容逻辑：如果包含 'O' 'H' 'L' 'C' 等表头，自动过滤掉
-            const lines = rawData.split('\n').filter(line => line.includes("'") || line.includes("."));
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>鹿希武系统 - DUMP 审计面板 v4.2</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: #d4d4d4; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        h1 { color: #00ff00; border-bottom: 2px solid #333; }
+        textarea { width: 100%; height: 120px; background: #1a1a1a; color: #00ff00; border: 1px solid #444; padding: 10px; margin-bottom: 10px; }
+        button { background: #00ff00; color: #000; border: none; padding: 10px 25px; font-weight: bold; cursor: pointer; }
+        .result-area { display: none; margin-top: 20px; background: #161616; padding: 20px; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #333; padding: 10px; text-align: center; }
+        th { background: #222; color: #888; }
+        .logic-highlight { color: #ff4500; font-weight: bold; padding: 10px; background: #2a1000; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DUMP 数据可视化审计系统</h1>
+        <p>直接粘贴控制台抓取的原始文本：</p>
+        <textarea id="dataInput" placeholder="在此粘贴数据..."></textarea>
+        <button onclick="processData()">解析并审计</button>
+
+        <div id="resultArea" class="result-area">
+            <div id="auditReport"></div>
+            <table>
+                <thead><tr><th>Index</th><th>O</th><th>H</th><th>L</th><th>C</th><th>Spread</th></tr></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function processData() {
+            const raw = document.getElementById('dataInput').value;
+            const rows = [];
+            // 兼容性正则：匹配所有包含小数点的数字序列
+            const lines = raw.split('\n');
             
-            lines.forEach(line => {
-                // 正则提取所有数字（包含小数点）
-                const matches = line.match(/\d+\.\d+/g);
-                if (matches && matches.length >= 4) {
+            lines.forEach((line, index) => {
+                const nums = line.match(/\d+\.\d+/g);
+                if (nums && nums.length >= 4) {
                     rows.push({
-                        "O": matches[0],
-                        "H": matches[1],
-                        "L": matches[2],
-                        "C": matches[3]
+                        idx: `[${String(rows.length).padStart(3, '0')}]`,
+                        o: nums[0], h: nums[1], l: nums[2], c: nums[3],
+                        s: (parseFloat(nums[1]) - parseFloat(nums[2])).toFixed(2)
                     });
                 }
             });
 
-            if (rows.length === 0) throw new Error("未识别到有效 OHLC 数据");
+            if (rows.length > 0) {
+                const latestS = rows[0].s;
+                let report = `<h3>审计结论：</h3>`;
+                if (parseFloat(latestS) < 15) {
+                    report += `<p class="logic-highlight">[警报] 当前动能比极低 (${latestS})，属于摩擦区。执行“冲高不破”观察，严禁追空。</p>`;
+                } else {
+                    report += `<p>当前动能：正常 (${latestS})</p>`;
+                }
+                
+                let tableHtml = "";
+                rows.forEach(r => {
+                    tableHtml += `<tr><td>${r.idx}</td><td>${r.o}</td><td>${r.h}</td><td>${r.l}</td><td>${r.c}</td><td>${r.s}</td></tr>`;
+                });
 
-            let html = "";
-            const latest = rows[0];
-            const spread0 = (parseFloat(latest.H) - parseFloat(latest.L)).toFixed(2);
-            
-            // 执行 [v3.0 协议] 动能审计
-            html += `<p><b>当前 [000] 状态：</b> O:${latest.O} H:${latest.H} L:${latest.L} C:${latest.C}</p>`;
-            html += `<p><b>实时波幅 (Spread)：</b> ${spread0}</p>`;
-            
-            if (spread0 < 10) {
-                html += `<p class="logic-alert">[审计判定] 动能极度枯竭 (10pt以内)，判定为核心摩擦区。禁止追单，执行观望策略。</p>`;
+                document.getElementById('auditReport').innerHTML = report;
+                document.getElementById('tableBody').innerHTML = tableHtml;
+                document.getElementById('resultArea').style.display = 'block';
+            } else {
+                alert("未能识别有效数据，请检查粘贴格式。");
             }
-
-            // 渲染表格
-            let tableHtml = "";
-            rows.forEach(r => {
-                const s = (parseFloat(r.H) - parseFloat(r.L)).toFixed(2);
-                tableHtml += `<tr><td>${r.O}</td><td>${r.H}</td><td>${r.L}</td><td>${r.C}</td><td>${s}</td></tr>`;
-            });
-
-            document.getElementById('auditContent').innerHTML = html;
-            document.getElementById('tableBody').innerHTML = tableHtml;
-            document.getElementById('resultCard').style.display = 'block';
-        } catch (e) { 
-            alert("解析失败。请确保粘贴的数据包含 O,H,L,C 数值。"); 
         }
-    }
-</script>
+    </script>
+</body>
+</html>
