@@ -2,75 +2,203 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>鹿希武系统 - DUMP 审计面板 v4.2</title>
+    <title>鹿希武系统 - DUMP 审计看板 v5.0</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: #d4d4d4; padding: 20px; }
+        :root { --neon-green: #00ff00; --bg-dark: #0a0a0a; --panel-bg: #161616; --border: #333; }
+        body { font-family: 'Consolas', 'Monaco', monospace; background: var(--bg-dark); color: #d4d4d4; padding: 40px; margin: 0; }
         .container { max-width: 1000px; margin: 0 auto; }
-        h1 { color: #00ff00; border-bottom: 2px solid #333; }
-        textarea { width: 100%; height: 120px; background: #1a1a1a; color: #00ff00; border: 1px solid #444; padding: 10px; margin-bottom: 10px; }
-        button { background: #00ff00; color: #000; border: none; padding: 10px 25px; font-weight: bold; cursor: pointer; }
-        .result-area { display: none; margin-top: 20px; background: #161616; padding: 20px; border-radius: 4px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #333; padding: 10px; text-align: center; }
-        th { background: #222; color: #888; }
-        .logic-highlight { color: #ff4500; font-weight: bold; padding: 10px; background: #2a1000; border-radius: 4px; }
+        
+        /* 头部样式 */
+        .header { border-left: 4px solid var(--neon-green); padding-left: 20px; margin-bottom: 30px; }
+        h1 { color: var(--neon-green); font-size: 24px; letter-spacing: 1px; margin: 0; }
+        
+        /* 输入区 */
+        textarea { width: 100%; height: 100px; background: #111; color: var(--neon-green); border: 1px solid var(--border); padding: 15px; border-radius: 4px; box-sizing: border-box; outline: none; transition: border 0.3s; }
+        textarea:focus { border-color: var(--neon-green); }
+        .action-btn { background: var(--neon-green); color: #000; border: none; padding: 12px 30px; font-weight: bold; cursor: pointer; margin: 15px 0; border-radius: 2px; }
+
+        /* 结果展示 */
+        .result-area { display: none; background: var(--panel-bg); padding: 20px; border: 1px solid var(--border); margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { border: 1px solid var(--border); padding: 10px; text-align: center; }
+        th { color: #888; text-transform: uppercase; font-size: 11px; }
+
+        /* --- 现代科技风代码框 --- */
+        .code-wrapper { margin-top: 60px; position: relative; background: #010101; border: 1px solid #222; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .code-header { background: #1a1a1a; padding: 10px 20px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+        .code-header span { color: #666; font-size: 12px; }
+        .copy-btn { background: transparent; border: 1px solid #444; color: #aaa; padding: 4px 12px; font-size: 12px; cursor: pointer; border-radius: 4px; transition: all 0.2s; }
+        .copy-btn:hover { border-color: var(--neon-green); color: var(--neon-green); }
+        .copy-btn.copied { background: var(--neon-green); color: #000; border-color: var(--neon-green); }
+        pre { margin: 0; padding: 20px; overflow-x: auto; color: #a9b7c6; font-size: 13px; line-height: 1.5; }
+        .keyword { color: #cc7832; } .function { color: #ffc66d; } .string { color: #6a8759; } .comment { color: #808080; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>DUMP 数据可视化审计系统</h1>
-        <p>直接粘贴控制台抓取的原始文本：</p>
-        <textarea id="dataInput" placeholder="在此粘贴数据..."></textarea>
-        <button onclick="processData()">解析并审计</button>
 
-        <div id="resultArea" class="result-area">
-            <div id="auditReport"></div>
-            <table>
-                <thead><tr><th>Index</th><th>O</th><th>H</th><th>L</th><th>C</th><th>Spread</th></tr></thead>
-                <tbody id="tableBody"></tbody>
-            </table>
-        </div>
+<div class="container">
+    <div class="header">
+        <h1>DUMP DATA AUDITOR v5.0</h1>
+        <p>基于 [鹿希武交易系统 v3.0] 协议的逻辑审计引擎</p>
     </div>
 
-    <script>
-        function processData() {
-            const raw = document.getElementById('dataInput').value;
-            const rows = [];
-            // 兼容性正则：匹配所有包含小数点的数字序列
-            const lines = raw.split('\n');
-            
-            lines.forEach((line, index) => {
-                const nums = line.match(/\d+\.\d+/g);
-                if (nums && nums.length >= 4) {
-                    rows.push({
-                        idx: `[${String(rows.length).padStart(3, '0')}]`,
-                        o: nums[0], h: nums[1], l: nums[2], c: nums[3],
-                        s: (parseFloat(nums[1]) - parseFloat(nums[2])).toFixed(2)
-                    });
-                }
-            });
+    <textarea id="dataInput" placeholder="在此粘贴控制台数据 [DUMP Source]..."></textarea>
+    <button class="action-btn" onclick="processAudit()">RUN AUDIT</button>
 
-            if (rows.length > 0) {
-                const latestS = rows[0].s;
-                let report = `<h3>审计结论：</h3>`;
-                if (parseFloat(latestS) < 15) {
-                    report += `<p class="logic-highlight">[警报] 当前动能比极低 (${latestS})，属于摩擦区。执行“冲高不破”观察，严禁追空。</p>`;
-                } else {
-                    report += `<p>当前动能：正常 (${latestS})</p>`;
-                }
-                
-                let tableHtml = "";
-                rows.forEach(r => {
-                    tableHtml += `<tr><td>${r.idx}</td><td>${r.o}</td><td>${r.h}</td><td>${r.l}</td><td>${r.c}</td><td>${r.s}</td></tr>`;
-                });
+    <div id="resultArea" class="result-area">
+        <div id="auditReport"></div>
+        <table id="dataTable">
+            <thead><tr><th>Index</th><th>O</th><th>H</th><th>L</th><th>C</th><th>Spread</th></tr></thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
 
-                document.getElementById('auditReport').innerHTML = report;
-                document.getElementById('tableBody').innerHTML = tableHtml;
-                document.getElementById('resultArea').style.display = 'block';
-            } else {
-                alert("未能识别有效数据，请检查粘贴格式。");
+    <div class="code-wrapper">
+        <div class="code-header">
+            <span>CORE_SCANNER_v4.2.js</span>
+            <button class="copy-btn" id="copyBtn" onclick="copyCode()">Copy Code</button>
+        </div>
+        <pre id="scannerCode">
+/* ====== [START] 在此下方替换你的代码 ====== */
+
+/**
+ * TradingView_DOM_Scanner_v4.1
+ * 功能：穿透 Iframe 提取 OHLC 核心数据，支持排重逻辑。
+ */
+(function() {
+    window.cleanDump = [];
+    let lastKey = ""; 
+
+    const getValFromDoc = (doc, title) => {
+        const el = doc.querySelector(`div[data-test-id-value-title="${title}="] .valueValue-l31H9iuA`);
+        return el ? el.innerText.replace(/,/g, '') : null;
+    };
+
+    const findValidDoc = () => {
+        if (getValFromDoc(document, '收')) return document;
+        const frames = document.querySelectorAll('iframe');
+        for (let f of frames) {
+            try {
+                const fDoc = f.contentDocument || f.contentWindow.document;
+                if (getValFromDoc(fDoc, '收')) return fDoc;
+            } catch (e) {}
+        }
+        return null;
+    };
+
+    const targetDoc = findValidDoc();
+    if (!targetDoc) return;
+
+    const scanner = setInterval(() => {
+        const o = getValFromDoc(targetDoc, '开');
+        const h = getValFromDoc(targetDoc, '高');
+        const l = getValFromDoc(targetDoc, '低');
+        const c = getValFromDoc(targetDoc, '收');
+
+        if (h && l) {
+            const currentKey = `${h}-${l}`; 
+            if (currentKey !== lastKey) {
+                window.cleanDump.push({ "O": o, "H": h, "L": l, "C": c });
+                lastKey = currentKey;
+                console.log(`Captured: ${window.cleanDump.length}/30`);
+
+                if (window.cleanDump.length >= 30) {
+                    clearInterval(scanner);
+                    console.table(window.cleanDump);
+                }
             }
         }
-    </script>
+    }, 250);
+})();
+
+/* ====== [END] 在此上方替换你的代码 ====== */
+</pre>
+    </div>
+</div>
+
+<script>
+    // v3.0 审计逻辑 - 集成 FIB 0.618 压制、ATR 动能衰减、"冲高不破"决策
+    function processAudit() {
+        const raw = document.getElementById('dataInput').value;
+        const rows = [];
+        const lines = raw.split('\n');
+        
+        // 1. 数据清洗
+        lines.forEach(line => {
+            const nums = line.match(/\d+\.\d+/g);
+            if (nums && nums.length >= 4) {
+                rows.push({
+                    o: parseFloat(nums[0]), h: parseFloat(nums[1]),
+                    l: parseFloat(nums[2]), c: parseFloat(nums[3]),
+                    s: (parseFloat(nums[1]) - parseFloat(nums[2])).toFixed(2)
+                });
+            }
+        });
+
+        if (rows.length < 5) { alert("数据样本过少，无法执行 v3.0 审计"); return; }
+
+        // 2. 核心审计指标计算
+        const latest = rows[0];
+        const prev = rows[1];
+        const avgSpread = (rows.slice(1, 11).reduce((acc, r) => acc + parseFloat(r.s), 0) / 10).toFixed(2); // 计算 ATR10
+        const momentumRatio = (latest.s / avgSpread * 100).toFixed(2);
+        
+        // 3. 构造审计报告内容
+        let report = `<h3 style="color:#0f0; border-bottom:1px solid #333; padding-bottom:5px;">[v3.0 核心审计报告]</h3>`;
+        
+        // --- A. 动能审计 ---
+        report += `<p><b>1. 动能审计：</b> 当前波幅 ${latest.s} / ATR10 均值 ${avgSpread}</p>`;
+        if (momentumRatio < 30) {
+            report += `<p class="logic-highlight">判定：[动能枯竭] (${momentumRatio}%)。市场进入核心摩擦区，禁止任何突破性追单。</p>`;
+        } else {
+            report += `<p>判定：[动能正常] (${momentumRatio}%)。具备波动空间。</p>`;
+        }
+
+        // --- B. 形态审计 (判定冲高不破) ---
+        const isHigherHigh = latest.h > prev.h;
+        const isCloseLower = latest.c < latest.o; // 阴线
+        if (isHigherHigh && isCloseLower) {
+            report += `<p class="logic-highlight">判定：[冲高不破] 逻辑成立。价格创出新高 ${latest.h} 但收盘被打回，空头压制明显。</p>`;
+        }
+
+        // --- C. 决策矩阵 ---
+        report += `<div style="background:#222; padding:15px; margin-top:10px; border:1px dashed #555;">`;
+        report += `<p style="color:#0f0; margin:0;"><b>【最终操作决策】</b></p>`;
+        if (latest.c < 5050) { // 这里可以根据你当前的品种水位微调
+            report += `<p>方向：<b>逢高做空</b></p>`;
+            report += `<p>止损锚定：<span style="color:#ff4500">${latest.h}</span> (当前 K 线最高点)</p>`;
+            report += `<p>目标位：${(latest.c - (avgSpread*2)).toFixed(2)} (预期 2 倍 ATR 空间)</p>`;
+        } else {
+            report += `<p>决策：方向不明，Space not in place, Wait.</p>`;
+        }
+        report += `</div>`;
+
+        // 4. 渲染数据表格
+        let tableHtml = "";
+        rows.forEach((r, i) => {
+            const idx = `[${String(i).padStart(3, '0')}]`;
+            tableHtml += `<tr><td>${idx}</td><td>${r.o}</td><td>${r.h}</td><td>${r.l}</td><td>${r.c}</td><td>${r.s}</td></tr>`;
+        });
+
+        document.getElementById('auditReport').innerHTML = report;
+        document.getElementById('tableBody').innerHTML = tableHtml;
+        document.getElementById('resultArea').style.display = 'block';
+    }
+
+    // 带视觉反馈的复制功能
+    function copyCode() {
+        const code = document.getElementById('scannerCode').innerText;
+        const btn = document.getElementById('copyBtn');
+        navigator.clipboard.writeText(code).then(() => {
+            btn.innerText = "COPIED!";
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.innerText = "Copy Code";
+                btn.classList.remove('copied');
+            }, 2000);
+        });
+    }
+</script>
+
 </body>
 </html>
